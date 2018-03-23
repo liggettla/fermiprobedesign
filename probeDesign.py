@@ -133,48 +133,69 @@ def possibleOligos(seq):
                 gcUp = (oligoUp.count('G') + oligoUp.count('C')) / len(oligoUp)
                 gcDown = (oligoDown.count('G') + oligoDown.count('C')) / len(oligoDown)
 
+                # Oligo position
+                # Position is given as the innermost position such that up - down yields capture length
+                upPos = start + 1 + oligolen
+                downPos = start + 6 + 131
 
-
-                up = pd.DataFrame([oligoUp, tmUp, homodimerUp, hairpinUp, endstablilityUp, 'Up', oligolen, gcClampUp, gcUp, probe], index=['Seq','Tm','Homo','Hairpin','Stability','Loc','Length','gcClamp','GC','Probe'])
-                down = pd.DataFrame([oligoDown, tmDown, homodimerDown, hairpinDown, endstablilityDown, 'Down', oligolen, gcClampDown, gcDown, probe], index=['Seq','Tm','Homo','Hairpin','Stability','Loc','Length','gcClamp','GC','Probe'])
+                up = pd.DataFrame([oligoUp, tmUp, homodimerUp, hairpinUp, endstablilityUp, 'Up', oligolen, gcClampUp, gcUp, probe, upPos], index=['Seq','Tm','Homo','Hairpin','Stability','Loc','Length','gcClamp','GC','Probe','Pos'])
+                down = pd.DataFrame([oligoDown, tmDown, homodimerDown, hairpinDown, endstablilityDown, 'Down', oligolen, gcClampDown, gcDown, probe, downPos], index=['Seq','Tm','Homo','Hairpin','Stability','Loc','Length','gcClamp','GC','Probe','Pos'])
 
                 fullDF = fullDF.append(up.T, ignore_index=True)
                 fullDF = fullDF.append(down.T, ignore_index=True)
 
-    # eliminate undesireable oligos
-    fullDF = fullDF[fullDF['Homo'] > -5000]
-    fullDF = fullDF[fullDF['Hairpin'] > -2000]
-    fullDF = fullDF[fullDF['GC'] > 0.404]
-    fullDF = fullDF[fullDF['GC'] < 0.596]
-    fullDF = fullDF[fullDF['gcClamp'] == 'good']
-    #fullDF = fullDF[fullDF['Tm'] < 66.7]
-    #fullDF = fullDF[fullDF['Tm'] > 73.2]
-    fullDF = fullDF[fullDF['Tm'] > 60]
+    # filter oligos by specified parameters
+    fullDF = eliminateOligos(fullDF)
 
-
-
-    fullDF = fullDF.reindex(columns=['Seq','Tm','Homo','Hairpin','Stability','Loc','Length','gcClamp','GC','Probe'])
+    fullDF = fullDF.reindex(columns=['Seq','Tm','Homo','Hairpin','Stability','Loc','Length','gcClamp','GC','Probe','Pos'])
     return fullDF
+
+# this will eliminate oligos based on desired filtering parameters
+def eliminateOligos(df):
+    import pandas as pd
+    finalDF = pd.DataFrame()
+
+    # this is useless at the moment but it may be advantageous in the future
+    # to make the following parameters dynamic in order to yield similar numbers
+    # of up and down oligos
+    for loc in ['Up', 'Down']:
+        temp = df[df['Loc'] == loc]
+
+        temp = temp[temp['Homo'] > -5000]
+        temp = temp[temp['Hairpin'] > -2000]
+        temp = temp[temp['GC'] > 0.404]
+        temp = temp[temp['GC'] < 0.596]
+        temp = temp[temp['gcClamp'] == 'good']
+        #temp = temp[temp['Tm'] < 66.7]
+        #temp = temp[temp['Tm'] > 73.2]
+        temp = temp[temp['Tm'] > 60]
+
+        finalDF = finalDF.append(temp, ignore_index=True)
+
+    return finalDF
 
 # this will return the first quarter of the DataFrame sorted by 3 prime stability
 # this is just a crude but simpler method of optimizing 3 prime stability
-def sampleStability(df):
+def sampleStability(df, seq):
     import pandas as pd
+    filteredDF = pd.DataFrame()
 
-    oligosUp = up[up['Probe'] == probe]
-    oligosUp = sort_values
-    oligosDown = up[up['Probe'] == probe]
+    for probe in seq:
+        for loc in ['Up', 'Down']:
+            temp = df[df['Probe'] == probe]
+            temp = temp[temp['Loc'] == loc]
 
-    #someting like this:
+            # sample the top quarter of oligos sorted in
 
-    # sample the top quarter of oligos sorted in
-    # descending order of 3' end stability ΔG
-    up = list(range(int(len(oligosUp) / 4)))
-    oligosUp = oligosUp.sort_values(['Stability'], ascending=False).take(up)
-    down = list(range(int(len(oligosDown) / 4)))
-    oligosDown = oligosDown.sort_values(['Stability'], ascending=False).take(down)
+            # descending order of 3' end stability ΔG
+            if len(temp) > 12:
+                sample = list(range(int(len(temp) / 4)))
+            else:
+                sample = list(range(int(len(temp))))
 
-    return oligosUp, oligosDown
+            filteredDF = filteredDF.append(temp.sort_values(['Stability'], ascending=False).take(sample), ignore_index=True)
+
+    return filteredDF
 
 # this will match up oligo pairs
 def findPairs(up, down, seq):
@@ -207,6 +228,7 @@ def findPairs(up, down, seq):
                     currentPair['Down'] = oligoDown
                     currentPair['Up3Prime'] = stabilityUp
                     currentPair['Down3Prime'] = stabilityDown
+
 
 
 
