@@ -198,7 +198,7 @@ def sampleStability(df, seq):
     return filteredDF
 
 # this will match up oligo pairs
-def findPairs(up, down, seq):
+def findPairs(df, seq):
     import pandas as pd
     import primer3
 
@@ -228,6 +228,39 @@ def findPairs(up, down, seq):
                     currentPair['Down'] = oligoDown
                     currentPair['Up3Prime'] = stabilityUp
                     currentPair['Down3Prime'] = stabilityDown
+
+def findPairsOld(up, down, seq):
+    import pandas as pd
+    import primer3
+
+
+    for probe in seq:
+        probeList = []
+        oligosUp = up[up['Probe'] == probe]
+        oligosDown = up[up['Probe'] == probe]
+
+        for rowUp in up.itertuples():
+            duplex = -100000
+            currentPair = {}
+            # row = Pandas(Index=1534, Seq='AGGGTGGAGGAAAGTTGGAATTCACAAACA', Tm=60.410845774884194, Homo=-4457.9524890635075, Hairpin=1000000.0,
+            # Stability=878.8465328218736, Loc='Up', Length=30, gcClamp='good', GC=0.43333333333333335, Probe='TIIIN')
+            oligoUp = rowUp[1]
+            stabilityUp = rowUp[5]
+
+            for rowDown in up.itertuples():
+                # row = Pandas(Index=1534, Seq='AGGGTGGAGGAAAGTTGGAATTCACAAACA', Tm=60.410845774884194, Homo=-4457.9524890635075, Hairpin=1000000.0,
+                # Stability=878.8465328218736, Loc='Up', Length=30, gcClamp='good', GC=0.43333333333333335, Probe='TIIIN')
+                oligoDown = rowDown[1]
+                stabilityDown = rowDown[5]
+
+                dg = primer3.bindings.calcHeterodimer(oligoUp, oligoDown).dg
+                # this finds the best pair by ΔG for each oligo
+                if duplex < dg:
+                    currentPair['Up'] = oligoUp
+                    currentPair['Down'] = oligoDown
+                    currentPair['Up3Prime'] = stabilityUp
+                    currentPair['Down3Prime'] = stabilityDown
+
 
 
 
