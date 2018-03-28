@@ -166,9 +166,10 @@ def eliminateOligos(df):
         temp = temp[temp['GC'] > 0.404]
         temp = temp[temp['GC'] < 0.596]
         temp = temp[temp['gcClamp'] == 'good']
-        #temp = temp[temp['Tm'] < 66.7]
-        #temp = temp[temp['Tm'] > 73.2]
-        temp = temp[temp['Tm'] > 60]
+
+        # this range was calculated by taking the melting temps of original probes
+        temp = temp[temp['Tm'] > 52.3]
+        temp = temp[temp['Tm'] < 67.1]
 
         finalDF = finalDF.append(temp, ignore_index=True)
 
@@ -229,6 +230,7 @@ def findPairs(df, seq):
                     currentPair['Up3Prime'] = stabilityUp
                     currentPair['Down3Prime'] = stabilityDown
 
+# this is old code that tried to find pairs, it is obsolete and can be deleted soon
 def findPairsOld(up, down, seq):
     import pandas as pd
     import primer3
