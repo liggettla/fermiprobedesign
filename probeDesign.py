@@ -18,7 +18,7 @@ def getSeq(ds):
             if '>' not in line:
                 finalSeq += line
 
-        allSeqs[probe['name']] = finalSeq
+        allSeqs[probe['name']] = finalSeq.upper()
 
     return allSeqs
 
@@ -203,66 +203,57 @@ def findPairs(df, seq):
     import pandas as pd
     import primer3
 
+    pairsList = []
+
+    # append to dataframe like this
+    #x.loc[index,column]=num
+
+    # df.iloc[i] returns the ith row of df. i does not refer to the index label, i is a 0-based index
+
+    up = df[df['Loc'] == 'Up']
+    down = df[df['Loc'] == 'Down']
+
+    duplex = -100000
+
     for probe in seq:
         probeList = []
         oligosUp = up[up['Probe'] == probe]
-        oligosDown = up[up['Probe'] == probe]
+        oligosDown = down[down['Probe'] == probe]
 
-        for rowUp in up.itertuples():
-            duplex = -100000
-            currentPair = {}
-            # row = Pandas(Index=1534, Seq='AGGGTGGAGGAAAGTTGGAATTCACAAACA', Tm=60.410845774884194, Homo=-4457.9524890635075, Hairpin=1000000.0,
-            # Stability=878.8465328218736, Loc='Up', Length=30, gcClamp='good', GC=0.43333333333333335, Probe='TIIIN')
-            oligoUp = rowUp[1]
-            stabilityUp = rowUp[5]
+        for rowUp in oligosUp.itertuples():
+            downSeq = oligosDown.copy(deep=True) # don't modify original df
+            downSeq['Hetero'] = downSeq['Seq'].apply(lambda x: primer3.bindings.calcHeterodimer(x, rowUp[1]).dg)
+            downSeq = downSeq.sort_values(['Hetero'], ascending=False)
 
-            for rowDown in up.itertuples():
-                # row = Pandas(Index=1534, Seq='AGGGTGGAGGAAAGTTGGAATTCACAAACA', Tm=60.410845774884194, Homo=-4457.9524890635075, Hairpin=1000000.0,
-                # Stability=878.8465328218736, Loc='Up', Length=30, gcClamp='good', GC=0.43333333333333335, Probe='TIIIN')
-                oligoDown = rowDown[1]
-                stabilityDown = rowDown[5]
+            # add to list of dicts which will be converted to pandas df
+            # this is much faster than individually adding to a DataFrame
+            pairsList.append({'Up':rowUp[1], 'Down':downSeq.iloc[0]['Seq'], 'Probe':probe, 'Hetero':downSeq.iloc[0]['Hetero'], 'CapLen':downSeq.iloc[0]['Pos'] - rowUp[11]})
 
-                dg = primer3.bindings.calcHeterodimer(oligoUp, oligoDown).dg
-                # this finds the best pair by ΔG for each oligo
-                if duplex < dg:
-                    currentPair['Up'] = oligoUp
-                    currentPair['Down'] = oligoDown
-                    currentPair['Up3Prime'] = stabilityUp
-                    currentPair['Down3Prime'] = stabilityDown
+    #convert final pairs to DataFrame
+    finalDF = pd.DataFrame(pairsList)
+    finalDF = finalDF.reindex(columns=['Probe','Up','Down','CapLen','Hetero'])
 
-# this is old code that tried to find pairs, it is obsolete and can be deleted soon
-def findPairsOld(up, down, seq):
+    return finalDF
+
+# ensure probes do not cross react
+def finalizeProbeSet(df, seq):
+    from collections import defaultdict
     import pandas as pd
     import primer3
 
+    finalProbes = []
 
+    # create holding data structure containing the best pair from each probe
     for probe in seq:
-        probeList = []
-        oligosUp = up[up['Probe'] == probe]
-        oligosDown = up[up['Probe'] == probe]
+        probeDF = df[df['Probe'] == probe]
+        probeDF = probeDF.sort_values(['Hetero'], ascending=False)
+        finalProbes.append({'Probe':probe, 'Up':probeDF.iloc[0]['Up'], 'Down':probeDF.iloc[0]['Down'], 'CapLen':1})
 
-        for rowUp in up.itertuples():
-            duplex = -100000
-            currentPair = {}
-            # row = Pandas(Index=1534, Seq='AGGGTGGAGGAAAGTTGGAATTCACAAACA', Tm=60.410845774884194, Homo=-4457.9524890635075, Hairpin=1000000.0,
-            # Stability=878.8465328218736, Loc='Up', Length=30, gcClamp='good', GC=0.43333333333333335, Probe='TIIIN')
-            oligoUp = rowUp[1]
-            stabilityUp = rowUp[5]
 
-            for rowDown in up.itertuples():
-                # row = Pandas(Index=1534, Seq='AGGGTGGAGGAAAGTTGGAATTCACAAACA', Tm=60.410845774884194, Homo=-4457.9524890635075, Hairpin=1000000.0,
-                # Stability=878.8465328218736, Loc='Up', Length=30, gcClamp='good', GC=0.43333333333333335, Probe='TIIIN')
-                oligoDown = rowDown[1]
-                stabilityDown = rowDown[5]
+    unfinished = True
+    while unfinished:
 
-                dg = primer3.bindings.calcHeterodimer(oligoUp, oligoDown).dg
-                # this finds the best pair by ΔG for each oligo
-                if duplex < dg:
-                    currentPair['Up'] = oligoUp
-                    currentPair['Down'] = oligoDown
-                    currentPair['Up3Prime'] = stabilityUp
-                    currentPair['Down3Prime'] = stabilityDown
-
+        pass
 
 
 
