@@ -227,33 +227,76 @@ def findPairs(df, seq):
 
             # add to list of dicts which will be converted to pandas df
             # this is much faster than individually adding to a DataFrame
-            pairsList.append({'Up':rowUp[1], 'Down':downSeq.iloc[0]['Seq'], 'Probe':probe, 'Hetero':downSeq.iloc[0]['Hetero'], 'CapLen':downSeq.iloc[0]['Pos'] - rowUp[11]})
+            pairsList.append({'Up':rowUp[1], 'Down':downSeq.iloc[0]['Seq'], 'Probe':probe, 'Hetero':downSeq.iloc[0]['Hetero'], 'CapLen':downSeq.iloc[0]['Pos'] - rowUp[11], 'Pair':(rowUp[1],downSeq.iloc[0]['Seq'])})
 
     #convert final pairs to DataFrame
     finalDF = pd.DataFrame(pairsList)
-    finalDF = finalDF.reindex(columns=['Probe','Up','Down','CapLen','Hetero'])
+
+    # the Pair column will be used to analyze pair combination compatibilities
+    finalDF = finalDF.reindex(columns=['Probe','Up','Down','CapLen','Hetero','Pair'])
+
+    # first find the probes that are the best match, then
+    # find the probes that capture the most intervening DNA
+    finalDF = finalDF.sort_values(['Hetero','CapLen'], ascending=False)
 
     return finalDF
 
 # ensure probes do not cross react
 def finalizeProbeSet(df, seq):
-    from collections import defaultdict
     import pandas as pd
     import primer3
+    from itertools import product
+    from itertools import combinations
 
-    finalProbes = []
+    # for i in product(*[df16['a'],df17['a'],df18['a']])
 
-    # create holding data structure containing the best pair from each probe
+    # create a list of all unique probe snapshots
+    dfList = []
     for probe in seq:
-        probeDF = df[df['Probe'] == probe]
-        probeDF = probeDF.sort_values(['Hetero'], ascending=False)
-        finalProbes.append({'Probe':probe, 'Up':probeDF.iloc[0]['Up'], 'Down':probeDF.iloc[0]['Down'], 'CapLen':1})
+        dfList.append(df[df['Probe']==probe]['Pair'])
+
+    # find all possible combinations of probe pairs
+    # comb is a tuple of pair tuples that looks like this:
+    # (('ACTG', 'TGCA'),('TAGC','ATCG'))
+    noGoodGroup = True
+    for comb in product(*dfList): # unpack list to analyze elements individually
+
+        if noGoodGroup:
+            # bin all oligos from this combination
+            tempBin = []
+            for pair in comb:
+                tempBin.append(pair[0])
+                tempBin.append(pair[1])
+
+            # check heterodimerization between all binned oligos
+            compatibleGroup = True
+            for compare in combinations(tempBin, 2):
+                print(primer3.bindings.calcHeterodimer(*compare).dg)
+                if primer3.bindings.calcHeterodimer(*compare).dg <= -5000:
+                    compatibleGroup = False
+
+            # if good group found stop searching
+            if compatibleGroup:
+                noGoodGroup = False
 
 
-    unfinished = True
-    while unfinished:
 
-        pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
